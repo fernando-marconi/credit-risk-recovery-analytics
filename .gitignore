@@ -1,0 +1,31 @@
+# Ambiente
+venv/
+.venv/
+.env
+
+# Dados (mantenha o repositório leve; dados brutos não devem ir para o Git)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/*.zip
+data/*.csv
+
+# Modelos treinados (opcional versionar via DVC/Git LFS no futuro)
+models/*
+!models/.gitkeep
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Power BI (arquivos temporários)
+*.pbix.bak
+
+# SO / editor
+.DS_Store
+.vscode/
