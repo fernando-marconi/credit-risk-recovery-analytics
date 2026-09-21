@@ -78,7 +78,7 @@ Assim como no projeto EcoStream Insight, nenhuma chave de API é versionada no r
    pip install -r requirements.txt
    ```
 2. Baixar a base "Give Me Some Credit" do Kaggle e salvar em `data/raw/`.
-3. Executar os notebooks na ordem: `01_eda` → `02_feature_engineering` → `03_modelagem` → `04_explicabilidade_shap`.
+3. Executar os notebooks na ordem: `01_eda` → `02_feature_engineering` → `03_modelagem` → `04_explicabilidade_shap` → `05_indicadores_negocio`.
 4. Abrir `powerbi/dashboard.pbix` no Power BI Desktop, apontando para os dados processados em `data/processed/`.
 5. (Opcional) Configurar `.env` com `GROQ_API_KEY` e executar `src/genai_explainer.py` para gerar o resumo executivo em linguagem natural.
 
@@ -105,14 +105,61 @@ Também foi adicionada uma análise do ponto de corte (threshold): em vez do 0,5
 
 O threshold ótimo ficou bem abaixo de 0,5 — comportamento esperado quando o SMOTE é usado no treino: ele balanceia as classes em 50/50 durante o `.fit()`, o que descalibra a probabilidade bruta prevista pelo modelo em relação à distribuição real do teste (~6-7% de inadimplentes). Por isso a fronteira de decisão "natural" aprendida no mundo balanceado do treino corresponde a um valor bem menor quando aplicada aos dados reais. No threshold ótimo, o modelo passa a capturar quase 8 em cada 10 futuros inadimplentes (recall de 78,75%), ao custo de precisão mais baixa (1 em cada 5 clientes sinalizados é de fato de risco) — um trade-off explícito de negócio, não uma limitação do modelo.
 
-> Pendente: principais variáveis explicativas (SHAP) e capturas de tela do dashboard Power BI.
+### Explicabilidade (SHAP)
+
+O gráfico abaixo resume as variáveis que mais influenciam as previsões do LightGBM, calculado com `shap.Explainer` sobre uma amostra de 1.000 clientes do conjunto de teste:
+
+| Variável | Impacto médio (\|SHAP\|) |
+|---|---|
+| **TotalTimesPastDue** | **1,48** |
+| HasDependents | 1,17 |
+| NumberOfDependents | 1,15 |
+| EverPastDue | 0,99 |
+| HasRealEstateLoan | 0,72 |
+| NumberRealEstateLoansOrLines | 0,64 |
+| RevolvingUtilizationOfUnsecuredLines | 0,64 |
+| age | 0,23 |
+| NumberOfOpenCreditLinesAndLoans | 0,19 |
+| DebtRatio | 0,14 |
+
+`TotalTimesPastDue` (soma das três faixas de atraso) é, como esperado, a variável mais importante — resume todo o histórico de inadimplência do cliente em um único número.
+
+**Ressalva de interpretação**: as variáveis `HasDependents`, `NumberOfDependents` e `NumberOfDependentsMissing` são todas derivadas da mesma coluna original (`NumberOfDependents`). Isso faz com que a importância dessa informação apareça "espalhada" entre três colunas correlacionadas em vez de concentrada em uma só, inflando a posição de cada uma individualmente no ranking do SHAP em relação a variáveis não redundantes, como `RevolvingUtilizationOfUnsecuredLines`. O modelo e as métricas de desempenho (AUC-ROC, KS) não são afetados por essa redundância — apenas a leitura isolada do ranking de importância exige esse cuidado, um ponto de atenção comum ao interpretar SHAP com features de engenharia correlacionadas.
+
+### Indicadores de Negócio (Roll Rate, Aging, Taxa de Cura)
+
+> **Nota sobre os dados**: o dataset é uma fotografia única de cada cliente (uma linha por pessoa), sem histórico mês a mês da mesma pessoa ao longo do tempo. Por isso, Roll Rate e Aging são aproximados a partir das três colunas de contagem de atraso (30-59, 60-89, 90+ dias) — o cálculo exato de cada indicador está documentado em `src/business_metrics.py`.
+
+**Roll Rate** (percentual de clientes que, tendo chegado à faixa de origem, também chegaram à faixa seguinte):
+
+| Transição | Roll Rate |
+|---|---|
+| 30-59 dias → 60-89 dias | 17,4% |
+| 60-89 dias → 90+ dias | **34,4%** |
+
+O Roll Rate praticamente dobra na segunda transição — sinal de que a gravidade do atraso já é, por si só, um indicador de dificuldade financeira persistente: quem chega a 60-89 dias tem quase o dobro de chance de continuar piorando, comparado a quem está apenas em 30-59 dias.
+
+**Aging de Carteira** (distribuição da carteira pela pior faixa de atraso já atingida):
+
+| Faixa | % da carteira |
+|---|---|
+| Nunca atrasou | 79,9% |
+| 30-59 dias | 11,5% |
+| 60-89 dias | 3,2% |
+| 90+ dias | 5,4% |
+
+A grande maioria da carteira (79,9%) nunca atrasou — coerente com o desbalanceamento de classes já observado na modelagem.
+
+**Taxa de Cura**: **78,02%** dos clientes que já tiveram algum atraso no histórico não se tornaram inadimplentes graves nos 2 anos seguintes. Isso sugere que cobrança agressiva para todo cliente que atrasa pela primeira vez pode ser desperdício de esforço (e até prejudicar clientes que se recuperariam sozinhos) — o esforço de cobrança mais intenso tende a fazer mais sentido concentrado em quem já demonstra sinais de não estar se recuperando.
+
+> Pendente: capturas de tela do dashboard Power BI.
 
 ## Roadmap
 
 - [x] EDA e engenharia de atributos
 - [x] Modelagem e comparação de algoritmos (com análise de threshold)
-- [ ] Explicabilidade com SHAP
-- [ ] Cálculo dos indicadores de negócio (Roll Rate, Aging, Taxa de Cura)
+- [x] Explicabilidade com SHAP
+- [x] Cálculo dos indicadores de negócio (Roll Rate, Aging, Taxa de Cura)
 - [ ] Dashboard em Power BI
 - [ ] Camada de IA generativa para resumo executivo
 - [ ] Publicação do post no LinkedIn

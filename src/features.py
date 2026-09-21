@@ -84,6 +84,22 @@ class Winsorizer(BaseEstimator, TransformerMixin):
         X = np.asarray(X, dtype=float).copy()
         return np.clip(X, self.lower_bounds_, self.upper_bounds_)
 
+    def get_feature_names_out(self, input_features=None):
+        """Necessario para que ColumnTransformer.get_feature_names_out()
+        funcione quando este transformer participa do pipeline (usado em
+        evaluate.py/explain_model() para nomear as colunas antes do SHAP).
+
+        Versoes mais novas do scikit-learn exigem que TODO transformer de
+        um ColumnTransformer implemente este metodo - sem ele, o erro e
+        "Transformer ... does not provide get_feature_names_out". Como o
+        Winsorizer so limita valores extremos (nunca cria, remove ou
+        renomeia colunas), basta devolver os mesmos nomes recebidos.
+        """
+        if input_features is not None:
+            return np.asarray(input_features, dtype=object)
+        n_features = self.upper_bounds_.shape[0]
+        return np.asarray([f"x{i}" for i in range(n_features)], dtype=object)
+
 
 def build_preprocessing_pipeline() -> ColumnTransformer:
     """Monta o ColumnTransformer de pre-processamento sensivel a vazamento:

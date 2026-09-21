@@ -29,6 +29,16 @@ from src.features import build_preprocessing_pipeline
 TARGET_COL = "SeriousDlqin2yrs"
 RANDOM_STATE = 42
 
+# Raiz do projeto, ancorada na localizacao deste arquivo (src/train.py) - e
+# no PROPRIO ARQUIVO, nunca no diretorio de trabalho (cwd). Isso importa
+# porque o Jupyter no VS Code roda os notebooks com o cwd igual a pasta do
+# proprio notebook (notebooks/), nao a raiz do projeto. Um caminho relativo
+# simples como "models" acabaria criando notebooks/models/ em vez de
+# models/ na raiz - foi exatamente isso que aconteceu na primeira execucao.
+# Ancorando em __file__, save_model() sempre aponta para o lugar certo,
+# nao importa de onde o notebook/script que a chama esta sendo executado.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 
 def split_data(df: pd.DataFrame, test_size: float = 0.2):
     """Split estratificado treino/teste (estratificado pela variavel alvo,
@@ -98,9 +108,16 @@ def train_and_compare(X_train, y_train, X_test, y_test) -> dict:
     return results
 
 
-def save_model(pipeline, name: str, output_dir: str = "models") -> Path:
-    """Serializa o pipeline treinado (pre-processamento + SMOTE + modelo)."""
-    output_path = Path(output_dir)
+def save_model(pipeline, name: str, output_dir: str | Path | None = None) -> Path:
+    """Serializa o pipeline treinado (pre-processamento + SMOTE + modelo).
+
+    Por padrao (output_dir=None), salva sempre em models/ na raiz do
+    projeto (PROJECT_ROOT), nunca em um caminho relativo ao diretorio de
+    trabalho atual - veja o comentario de PROJECT_ROOT acima para o motivo.
+    Ainda e possivel passar um output_dir explicito se algum dia for
+    necessario salvar em outro lugar.
+    """
+    output_path = Path(output_dir) if output_dir is not None else PROJECT_ROOT / "models"
     output_path.mkdir(parents=True, exist_ok=True)
     file_path = output_path / f"{name}.joblib"
     joblib.dump(pipeline, file_path)
@@ -108,7 +125,7 @@ def save_model(pipeline, name: str, output_dir: str = "models") -> Path:
 
 
 if __name__ == "__main__":
-    df = pd.read_csv("data/processed/credit_features.csv")
+    df = pd.read_csv(PROJECT_ROOT / "data" / "processed" / "credit_features.csv")
     X_train, X_test, y_train, y_test = split_data(df)
 
     results = train_and_compare(X_train, y_train, X_test, y_test)

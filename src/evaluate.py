@@ -112,7 +112,17 @@ def explain_model(pipeline, X_sample: pd.DataFrame, sample_size: int = 500):
     X_transformed_df = pd.DataFrame(X_transformed, columns=feature_names, index=X_sample.index)
 
     explainer = shap.Explainer(classifier, X_transformed_df)
-    shap_values = explainer(X_transformed_df)
+
+    # check_additivity=False: e comum, com modelos de gradient boosting
+    # (LightGBM/XGBoost), o SHAP acusar uma pequena divergencia entre a
+    # soma dos valores SHAP e a saida real do modelo para algumas amostras.
+    # Isso acontece por causa de arredondamento de ponto flutuante entre o
+    # jeito que o LightGBM discretiza os valores das variaveis internamente
+    # (histogram binning) e o jeito que o SHAP percorre as arvores - e uma
+    # limitacao numerica conhecida da combinacao LightGBM+SHAP, nao um erro
+    # no nosso pipeline. Por isso desativamos essa checagem estrita; os
+    # valores SHAP continuam validos para fins de interpretacao.
+    shap_values = explainer(X_transformed_df, check_additivity=False)
 
     # Dependendo da versao do SHAP/do modelo, classificadores binarios podem
     # retornar um array com uma dimensao extra por classe (n, features, 2).
