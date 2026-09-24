@@ -152,7 +152,21 @@ A grande maioria da carteira (79,9%) nunca atrasou — coerente com o desbalance
 
 **Taxa de Cura**: **78,02%** dos clientes que já tiveram algum atraso no histórico não se tornaram inadimplentes graves nos 2 anos seguintes. Isso sugere que cobrança agressiva para todo cliente que atrasa pela primeira vez pode ser desperdício de esforço (e até prejudicar clientes que se recuperariam sozinhos) — o esforço de cobrança mais intenso tende a fazer mais sentido concentrado em quem já demonstra sinais de não estar se recuperando.
 
-> Pendente: capturas de tela do dashboard Power BI.
+### Dashboard Power BI
+
+O dashboard tem 3 páginas, cada uma com os dados calculados acima e cor usada para comunicar risco (vermelho para segmentos/faixas de maior risco, azul/verde para os de menor risco):
+
+**Visão Geral da Carteira** — volume de clientes, taxa real de inadimplência, taxa de cura e distribuição da carteira por segmento de risco (quartis de probabilidade prevista pelo modelo):
+
+![Visão Geral da Carteira](images/Vis%C3%A3o%20Geral%20da%20Carteira.png)
+
+**Indicadores de Recuperação** — validação do score por decil, Aging de Carteira e Roll Rate:
+
+![Indicadores de Recuperação](images/Indicadores%20de%20Recupera%C3%A7%C3%A3o.png)
+
+**Explicabilidade** — importância das variáveis (SHAP) que mais influenciam o score do modelo:
+
+![Explicabilidade](images/Explicabilidade.png)
 
 ## Roadmap
 
@@ -160,7 +174,7 @@ A grande maioria da carteira (79,9%) nunca atrasou — coerente com o desbalance
 - [x] Modelagem e comparação de algoritmos (com análise de threshold)
 - [x] Explicabilidade com SHAP
 - [x] Cálculo dos indicadores de negócio (Roll Rate, Aging, Taxa de Cura)
-- [ ] Dashboard em Power BI
+- [x] Dashboard em Power BI
 - [ ] Camada de IA generativa para resumo executivo
 - [ ] Publicação do post no LinkedIn
 
