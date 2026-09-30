@@ -92,6 +92,52 @@ def get_precision_recall_curve(y_true, y_pred_proba):
     return precision_recall_curve(y_true, y_pred_proba)
 
 
+def build_score_deciles(y_true, y_pred_proba) -> pd.DataFrame:
+    """Tabela classica de validacao de score de credito (usada em comites de
+    credito para validar se o modelo realmente ordena risco corretamente).
+
+    Divide os clientes em 10 grupos (decis) pela probabilidade prevista,
+    do decil 1 (maior risco previsto) ao decil 10 (menor risco previsto), e
+    mostra a taxa REAL de inadimplencia observada em cada grupo. Um modelo
+    que discrimina bem deve mostrar uma taxa real de inadimplencia
+    consistentemente decrescente do decil 1 ao decil 10 - se essa ordem nao
+    for respeitada, e sinal de que o modelo nao esta rankeando risco de
+    forma confiavel nessa faixa.
+    """
+    df = pd.DataFrame({"y_true": np.asarray(y_true), "proba": np.asarray(y_pred_proba)})
+    # qcut numera os grupos do menor para o maior valor de proba (0 = menor
+    # risco); invertendo, o decil 1 passa a ser o de maior risco previsto,
+    # que e a convencao usada em comites de credito.
+    grupo = pd.qcut(df["proba"], 10, labels=False, duplicates="drop")
+    df["decil"] = grupo.max() - grupo + 1
+
+    resumo = (
+        df.groupby("decil")
+        .agg(
+            qtd_clientes=("y_true", "size"),
+            proba_media=("proba", "mean"),
+            taxa_inadimplencia_real=("y_true", "mean"),
+        )
+        .reset_index()
+        .sort_values("decil")
+        .reset_index(drop=True)
+    )
+    resumo["proba_media"] = resumo["proba_media"].round(4)
+    resumo["taxa_inadimplencia_real"] = resumo["taxa_inadimplencia_real"].round(4)
+    return resumo
+
+
+def assign_risk_segment(y_pred_proba) -> np.ndarray:
+    """Classifica cada cliente em um dos 4 quartis de risco (Q1 = 25% de
+    maior risco previsto, Q4 = 25% de menor risco) - forma padrao de
+    segmentar a carteira por score para o Power BI, sem depender de um
+    threshold fixo de negocio."""
+    y_pred_proba = np.asarray(y_pred_proba)
+    quartil = pd.qcut(y_pred_proba, 4, labels=False, duplicates="drop")
+    rotulos = {3: "Q1 - Risco mais alto", 2: "Q2", 1: "Q3", 0: "Q4 - Risco mais baixo"}
+    return np.array([rotulos[q] for q in quartil])
+
+
 def explain_model(pipeline, X_sample: pd.DataFrame, sample_size: int = 500):
     """Gera explicacoes SHAP (global) para o modelo treinado dentro de um
     pipeline (preprocessing -> smote -> classifier).
